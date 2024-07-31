@@ -1,0 +1,163 @@
+<html><head><base href="https://websim.io/linear-regression-simulator/" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Linear Regression Simulator</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    #wrapper { overflow-x: hidden; }
+    #sidebar-wrapper { min-height: 100vh; margin-left: -15rem; transition: margin 0.25s ease-out; }
+    #sidebar-wrapper .sidebar-heading { padding: 0.875rem 1.25rem; font-size: 1.2rem; }
+    #sidebar-wrapper .list-group { width: 15rem; }
+    #page-content-wrapper { min-width: 100vw; }
+    body.sb-sidenav-toggled #wrapper #sidebar-wrapper { margin-left: 0; }
+    @media (min-width: 768px) {
+        #sidebar-wrapper { margin-left: 0; }
+        #page-content-wrapper { min-width: 0; width: 100%; }
+        body.sb-sidenav-toggled #wrapper #sidebar-wrapper { margin-left: -15rem; }
+    }
+</style>
+</head>
+<body>
+    <div class="d-flex" id="wrapper">
+        <!-- Sidebar -->
+        <div class="bg-light border-right" id="sidebar-wrapper">
+            <div class="sidebar-heading">Linear Regression</div>
+            <div class="list-group list-group-flush">
+                <div class="list-group-item">
+                    <label for="slope">Slope (a):</label>
+                    <input type="range" class="form-range" id="slope" min="-10" max="10" step="0.1" value="1">
+                    <span id="slopeValue">1</span>
+                </div>
+                <div class="list-group-item">
+                    <label for="noise">Noise (c):</label>
+                    <input type="range" class="form-range" id="noise" min="10" max="100" step="1" value="50">
+                    <span id="noiseValue">50</span>
+                </div>
+                <div class="list-group-item">
+                    <label for="samples">Samples (n):</label>
+                    <input type="range" class="form-range" id="samples" min="100" max="1000" step="10" value="500">
+                    <span id="samplesValue">500</span>
+                </div>
+            </div>
+        </div>
+        <!-- Page Content -->
+        <div id="page-content-wrapper">
+            <nav class="navbar navbar-expand-lg navbar-light bg-light border-bottom">
+                <div class="container-fluid">
+                    <button class="btn btn-primary" id="menu-toggle">Toggle Menu</button>
+                    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation"><span class="navbar-toggler-icon"></span></button>
+                    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                        <ul class="navbar-nav ms-auto mt-2 mt-lg-0">
+                            <li class="nav-item active"><a class="nav-link" href="#!">Home</a></li>
+                            <li class="nav-item"><a class="nav-link" href="#!">About</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </nav>
+            <div class="container-fluid">
+                <h1 class="mt-4">Linear Regression Simulator</h1>
+                <p>Adjust the parameters using the sidebar to see the results in real-time.</p>
+                <div class="chart-container" style="position: relative; height:60vh; width:80vw">
+                    <canvas id="scatterPlot"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let chart;
+
+        function generateData(slope, noise, samples) {
+            const x = Array.from({length: samples}, () => Math.random() * 200 - 100);
+            const y = x.map(xi => slope * xi + 50 + noise * (Math.random() * 2 - 1));
+            return {x, y};
+        }
+
+        function linearRegression(x, y) {
+            const n = x.length;
+            let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+            for (let i = 0; i < n; i++) {
+                sumX += x[i];
+                sumY += y[i];
+                sumXY += x[i] * y[i];
+                sumXX += x[i] * x[i];
+            }
+            const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+            const intercept = (sumY - slope * sumX) / n;
+            return {slope, intercept};
+        }
+
+        function updateChart() {
+            const slope = parseFloat(document.getElementById("slope").value);
+            const noise = parseFloat(document.getElementById("noise").value);
+            const samples = parseInt(document.getElementById("samples").value);
+
+            const {x, y} = generateData(slope, noise, samples);
+            const {slope: fittedSlope, intercept} = linearRegression(x, y);
+
+            const xMin = Math.min(...x);
+            const xMax = Math.max(...x);
+            const yPredMin = fittedSlope * xMin + intercept;
+            const yPredMax = fittedSlope * xMax + intercept;
+
+            if (chart) {
+                chart.destroy();
+            }
+
+            const ctx = document.getElementById('scatterPlot').getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        label: 'Data Points',
+                        data: x.map((xi, i) => ({x: xi, y: y[i]})),
+                        backgroundColor: 'rgba(0, 123, 255, 0.5)'
+                    }, {
+                        label: 'Regression Line',
+                        data: [
+                            {x: xMin, y: yPredMin},
+                            {x: xMax, y: yPredMax}
+                        ],
+                        type: 'line',
+                        borderColor: 'red',
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+
+            document.querySelector('.container-fluid p').innerHTML = 
+                `Fitted line: y = ${fittedSlope.toFixed(2)}x + ${intercept.toFixed(2)}`;
+        }
+
+        ["slope", "noise", "samples"].forEach(id => {
+            const slider = document.getElementById(id);
+            const value = document.getElementById(id + "Value");
+            slider.addEventListener("input", () => {
+                value.textContent = slider.value;
+                updateChart();
+            });
+        });
+
+        document.getElementById("menu-toggle").addEventListener("click", e => {
+            e.preventDefault();
+            document.body.classList.toggle("sb-sidenav-toggled");
+        });
+
+        // Auto-generate data on page load
+        window.addEventListener('load', updateChart);
+    </script>
+</body>
+</html>
